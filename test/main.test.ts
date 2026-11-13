@@ -39,4 +39,29 @@ describe("startup", () => {
       await h.close();
     }
   });
+
+  it("reads PRINTIFY_API_BASE from the environment, preserving a path prefix and trimming trailing slashes", async () => {
+    const http = createFakeFetch({ body: [] });
+    const h = await startHarnessFromEnv(
+      { PRINTIFY_API_TOKEN: "t", PRINTIFY_API_BASE: "https://enterprise.printful.com/api/pfy/public/" },
+      http,
+    );
+    try {
+      await h.client.callTool({ name: "retrieve_list_of_shops_in_a_printify_account", arguments: {} });
+      expect(http.requests[0].url).toBe("https://enterprise.printful.com/api/pfy/public/v1/shops.json");
+    } finally {
+      await h.close();
+    }
+  });
+
+  it("defaults to api.printify.com when PRINTIFY_API_BASE is unset", async () => {
+    const http = createFakeFetch({ body: [] });
+    const h = await startHarnessFromEnv({ PRINTIFY_API_TOKEN: "t" }, http);
+    try {
+      await h.client.callTool({ name: "retrieve_list_of_shops_in_a_printify_account", arguments: {} });
+      expect(http.requests[0].url).toBe("https://api.printify.com/v1/shops.json");
+    } finally {
+      await h.close();
+    }
+  });
 });

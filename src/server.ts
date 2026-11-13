@@ -17,7 +17,8 @@ export const SERVER_VERSION = "0.1.0";
 export function createServer(config: ServerConfig, fetchImpl: FetchLike): McpServer {
   const ctx = {
     token: config.token,
-    apiBase: config.apiBase ?? DEFAULT_API_BASE,
+    // Strip trailing slashes so `${apiBase}${path}` never doubles the slash.
+    apiBase: (config.apiBase || DEFAULT_API_BASE).replace(/\/+$/, ""),
     fetch: fetchImpl,
   };
   const server = new McpServer({ name: "printify-mcp", version: SERVER_VERSION });
