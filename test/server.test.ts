@@ -151,3 +151,88 @@ describe("query parameters", () => {
     expect(none.req!.url).toBe("https://api.printify.com/v1/shops/42/products.json");
   });
 });
+
+describe("dispatcher robustness", () => {
+  const SHOPS = "retrieve_list_of_shops_in_a_printify_account";
+
+  it("returns status and JSON error body as an error result", async () => {
+    const { res } = await call(SHOPS, {}, createFakeFetch({ status: 422, body: { errors: { reason: "bad" } } }));
+    expect(res.isError).toBe(true);
+    expect(resultText(res)).toContain("422");
+    expect(resultText(res)).toContain("bad");
+  });
+
+  it("does not retry on 429", async () => {
+    const { res, http } = await call(SHOPS, {}, createFakeFetch({ status: 429, body: "slow down" }));
+    expect(res.isError).toBe(true);
+    expect(resultText(res)).toContain("429");
+    expect(resultText(res)).toContain("slow down");
+    expect(http.requests).toHaveLength(1);
+  });
+
+  it("reports success with the status for an empty 204 body", async () => {
+    const { res } = await call(SHOPS, {}, createFakeFetch({ status: 204 }));
+    expect(res.isError).toBeFalsy();
+    expect(resultText(res)).toContain("204");
+    expect(resultText(res).toLowerCase()).toContain("success");
+  });
+
+  it("returns a non-JSON body as raw text", async () => {
+    const { res } = await call(SHOPS, {}, createFakeFetch({ body: "plain <text>" }));
+    expect(res.isError).toBeFalsy();
+    expect(resultText(res)).toBe("plain <text>");
+  });
+
+  it("uses a custom apiBase, keeping its path prefix", async () => {
+    const http = createFakeFetch();
+    h = await startHarness({ apiBase: "https://enterprise.printful.com/api/pfy/public" }, http);
+    await h.client.callTool({ name: SHOPS, arguments: {} });
+    expect(http.requests[0].url).toBe("https://enterprise.printful.com/api/pfy/public/v1/shops.json");
+  });
+
+  it("strips trailing slashes from apiBase", async () => {
+    const http = createFakeFetch();
+    h = await startHarness({ apiBase: "https://example.test/prefix//" }, http);
+    await h.client.callTool({ name: SHOPS, arguments: {} });
+    expect(http.requests[0].url).toBe("https://example.test/prefix/v1/shops.json");
+  });
+
+  it("treats a whitespace-only apiBase as unset", async () => {
+    const http = createFakeFetch();
+    h = await startHarness({ apiBase: "   " }, http);
+    await h.client.callTool({ name: SHOPS, arguments: {} });
+    expect(http.requests[0].url).toBe("https://api.printify.com/v1/shops.json");
+  });
+
+  it("returns an error result with method and URL when fetch throws, without leaking the token", async () => {
+    const http = createFakeFetch();
+    const failing = (async () => {
+      throw new Error("connect ECONNREFUSED test-token");
+    }) as unknown as typeof fetch;
+    h = await startHarness({ token: "test-token" }, { ...http, fetch: failing });
+    const res = await h.client.callTool({ name: SHOPS, arguments: {} });
+    expect(res.isError).toBe(true);
+    const t = resultText(res);
+    expect(t).toContain("GET https://api.printify.com/v1/shops.json");
+    expect(t).toContain("ECONNREFUSED");
+    expect(t).not.toContain("test-token");
+  });
+
+  it("returns an error with the status for a non-2xx empty body", async () => {
+    const { res } = await call(SHOPS, {}, createFakeFetch({ status: 500 }));
+    expect(res.isError).toBe(true);
+    expect(resultText(res)).toContain("500");
+  });
+
+  it("reports success for a 200 with an empty body", async () => {
+    const { res } = await call(SHOPS, {}, createFakeFetch({ status: 200 }));
+    expect(res.isError).toBeFalsy();
+    expect(resultText(res).toLowerCase()).toContain("success");
+  });
+
+  it("reports success for a whitespace-only 2xx body", async () => {
+    const { res } = await call(SHOPS, {}, createFakeFetch({ status: 200, body: "  \n " }));
+    expect(res.isError).toBeFalsy();
+    expect(resultText(res).toLowerCase()).toContain("success");
+  });
+});
