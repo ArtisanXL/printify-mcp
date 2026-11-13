@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { dispatch, type FetchLike } from "./dispatcher.js";
+import { extensionFor } from "./extensions.js";
 import { tools, toolsetNames } from "./generated/tools.js";
 
 export type { FetchLike };
@@ -63,14 +64,20 @@ export function createServer(config: ServerConfig, fetchImpl: FetchLike): McpSer
   for (const tool of tools) {
     if (enabled && !enabled.includes(tool.toolset)) continue;
     if (readOnly && !tool.annotations.readOnlyHint) continue;
+    const ext = extensionFor(tool);
     server.registerTool(
       tool.name,
       {
         description: tool.description,
-        inputSchema: tool.inputSchema,
+        inputSchema: { ...tool.inputSchema, ...ext?.inputSchema },
         annotations: tool.annotations,
       },
-      async (args: Record<string, unknown>) => dispatch(tool, args, ctx),
+      async (args: Record<string, unknown>) => {
+        if (!ext) return dispatch(tool, args, ctx);
+        const prepared = await ext.prepare(args);
+        if ("error" in prepared) return { content: [{ type: "text" as const, text: prepared.error }], isError: true };
+        return dispatch(tool, prepared.args, ctx);
+      },
     );
   }
 
