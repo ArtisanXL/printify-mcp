@@ -47,17 +47,20 @@ jobs:
             echo "Spec Snapshot unchanged; nothing to do."
           fi
       - name: Typecheck, build, test
+        id: checks
         if: steps.diff.outputs.changed == 'true'
+        continue-on-error: true
         run: |
           npm run typecheck
           npm run build
           npm test
       - name: Open or update PR
         if: steps.diff.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.SPEC_REFRESH_TOKEN || secrets.GITHUB_TOKEN }}
           branch: chore/spec-refresh
+          draft: ${{ steps.checks.outcome == 'failure' }}
           add-paths: |
             spec
             src/generated
@@ -66,7 +69,12 @@ jobs:
           body: |
             Automated weekly refresh of `spec/openapi.json` from Printify, with `src/generated/` regenerated via `npm run generate`.
 
-            typecheck, build and test passed in the refresh workflow. If CI did not start on this PR (PRs opened with the default `GITHUB_TOKEN` do not trigger workflows), check that those results are acceptable before merging.
+            ${{ steps.checks.outcome == 'success' && 'typecheck, build and test passed in the refresh workflow.' || '**typecheck, build and/or test FAILED in the refresh workflow, so this PR is a draft.** See the workflow run logs.' }} If CI did not start on this PR (PRs opened with the default `GITHUB_TOKEN` do not trigger workflows), check that those results are acceptable before merging.
 
             Review the spec diff for new, removed or changed Operations. New Operations may need a Toolset assignment or Write/Paid classification.
           delete-branch: true
+      - name: Fail if checks failed
+        if: steps.checks.outcome == 'failure'
+        run: |
+          echo "::error::typecheck/build/test failed on the refreshed Spec Snapshot; a draft PR was opened for inspection."
+          exit 1
