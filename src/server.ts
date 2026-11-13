@@ -9,6 +9,14 @@ export interface ServerConfig {
   token: string;
   /** API base URL (no version prefix: Operation paths already carry `/v1`, `/v2`). */
   apiBase?: string;
+  /** Read-only Mode: when true (the default) Write Tools are not registered. */
+  readOnly?: boolean;
+}
+
+/** `PRINTIFY_READ_ONLY`: on unless `false` or `0` (case-insensitive, trimmed). */
+export function parseReadOnly(value: string | undefined): boolean {
+  const v = value?.trim().toLowerCase();
+  return !(v === "false" || v === "0");
 }
 
 export const DEFAULT_API_BASE = "https://api.printify.com";
@@ -23,7 +31,9 @@ export function createServer(config: ServerConfig, fetchImpl: FetchLike): McpSer
   };
   const server = new McpServer({ name: "printify-mcp", version: SERVER_VERSION });
 
+  const readOnly = config.readOnly ?? true;
   for (const tool of tools) {
+    if (readOnly && !tool.annotations.readOnlyHint) continue;
     server.registerTool(
       tool.name,
       {

@@ -14,10 +14,10 @@ async function call(name: string, args: Record<string, unknown> = {}, http = cre
 }
 
 describe("tool listing", () => {
-  it("exposes every GET Operation, read-only annotated, with descriptions and schemas", async () => {
+  it("exposes every read-only Operation (GETs plus the shipping-cost POST), read-only annotated, with descriptions and schemas", async () => {
     h = await startHarness();
     const { tools } = await h.client.listTools();
-    expect(tools).toHaveLength(27);
+    expect(tools).toHaveLength(28);
     for (const t of tools) {
       expect(t.annotations?.readOnlyHint, t.name).toBe(true);
       expect(t.annotations?.destructiveHint, t.name).toBe(false);
@@ -234,5 +234,82 @@ describe("dispatcher robustness", () => {
     const { res } = await call(SHOPS, {}, createFakeFetch({ status: 200, body: "  \n " }));
     expect(res.isError).toBeFalsy();
     expect(resultText(res).toLowerCase()).toContain("success");
+  });
+});
+
+describe("Read-only Mode and Write Tools", () => {
+  const PAID = ["submit_an_order", "submit_a_printify_express_order", "send_an_existing_order_to_production"];
+  const DESTRUCTIVE_EXTRA = ["cancel_an_order", "cancel_an_order_line_item", "archive_an_uploaded_image"];
+  const DELETES = ["delete_a_product", "delete_a_webhook", "disconnect_a_shop"];
+
+  async function list(config: Parameters<typeof startHarness>[0]) {
+    h = await startHarness(config);
+    return (await h.client.listTools()).tools;
+  }
+
+  it("offers only read-only Tools by default, including the shipping-cost POST", async () => {
+    const tools = await list({});
+    expect(tools).toHaveLength(28);
+    expect(tools.map((t) => t.name)).toContain("calculate_the_shipping_cost_of_an_order");
+    expect(tools.map((t) => t.name)).not.toContain("create_a_new_product");
+    for (const t of tools) expect(t.annotations?.readOnlyHint, t.name).toBe(true);
+  });
+
+  it("offers all 53 Tools when Read-only Mode is off, with explicit annotations", async () => {
+    const tools = await list({ readOnly: false });
+    expect(tools).toHaveLength(53);
+    const destructive = tools.filter((t) => t.annotations?.destructiveHint).map((t) => t.name).sort();
+    expect(destructive).toEqual([...PAID, ...DESTRUCTIVE_EXTRA, ...DELETES].sort());
+    for (const t of tools) {
+      expect(typeof t.annotations?.readOnlyHint, t.name).toBe("boolean");
+      expect(typeof t.annotations?.destructiveHint, t.name).toBe("boolean");
+    }
+    const by = (n: string) => tools.find((t) => t.name === n)!;
+    expect(by("update_a_product").annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+    expect(by("create_a_new_product").annotations).toMatchObject({ readOnlyHint: false, destructiveHint: false });
+    expect(by("calculate_the_shipping_cost_of_an_order").annotations).toMatchObject({ readOnlyHint: true, destructiveHint: false });
+  });
+
+  it("prefixes Paid Tools and notes sales-channel-only Tools", async () => {
+    const tools = await list({ readOnly: false });
+    for (const n of PAID) {
+      expect(tools.find((t) => t.name === n)!.description, n).toMatch(/^PAID: this call can charge your Printify account/);
+    }
+    expect(tools.filter((t) => t.description?.startsWith("PAID")).map((t) => t.name).sort()).toEqual([...PAID].sort());
+    for (const n of [
+      "set_product_publish_status_to_succeeded",
+      "set_product_publish_status_to_failed",
+      "notify_that_a_product_has_been_unpublished",
+    ]) {
+      expect(tools.find((t) => t.name === n)!.description, n).toMatch(/custom sales channel/i);
+    }
+  });
+
+  const cases: [string, string, Record<string, unknown>, string, string, unknown?][] = [
+    ["shops", "disconnect_a_shop", { shop_id: 5 }, "DELETE", "/v1/shops/5/connection.json"],
+    ["products", "update_a_product", { shop_id: 5, product_id: "p1", body: { title: "T" } }, "PUT", "/v1/shops/5/products/p1.json", { title: "T" }],
+    ["products", "create_a_new_product", { shop_id: 5, body: { title: "T", description: "D", blueprint_id: 3, print_provider_id: 4, variants: [], print_areas: [] } }, "POST", "/v1/shops/5/products.json", { title: "T", description: "D", blueprint_id: 3, print_provider_id: 4, variants: [], print_areas: [] }],
+    ["orders", "request_an_order_reprint", { shop_id: 5, order_id: "o1", body: { reason: "wrong_design", description: "d", line_items: [{ line_item_id: "l", quantity: 1 }] } }, "POST", "/v1/shops/5/orders/o1/support-requests/reprint", { reason: "wrong_design", description: "d", line_items: [{ line_item_id: "l", quantity: 1 }] }],
+    ["personalization", "create_a_personalization_configuration", { shop_id: 5, product_id: "p1", body: { variant_id: 1, items: [{ field_id: "f", type: "textbox", input: { text: "x" } }] } }, "POST", "/v1/shops/5/products/p1/personalization.json", { variant_id: 1, items: [{ field_id: "f", type: "textbox", input: { text: "x" } }] }],
+    ["uploads", "upload_an_image", { body: { file_name: "a.png", url: "http://x/a.png" } }, "POST", "/v1/uploads/images.json", { file_name: "a.png", url: "http://x/a.png" }],
+    ["webhooks", "modify_a_webhook", { shop_id: 5, webhook_id: "w", body: { url: "http://h" } }, "PUT", "/v1/shops/5/webhooks/w.json", { url: "http://h" }],
+    ["webhooks", "create_a_new_webhook", { shop_id: 5, body: { topic: "product:created", url: "http://h" } }, "POST", "/v1/shops/5/webhooks.json", { topic: "product:created", url: "http://h" }],
+    ["webhooks", "delete_a_webhook", { shop_id: 5, webhook_id: "w", host: "h.example" }, "DELETE", "/v1/shops/5/webhooks/w.json?host=h.example"],
+    ["orders", "calculate_the_shipping_cost_of_an_order", { shop_id: 5, body: { line_items: [], address_to: { country: "US" } } }, "POST", "/v1/shops/5/orders/shipping.json", { line_items: [], address_to: { country: "US" } }],
+  ];
+  it.each(cases)("%s: %s sends the right method, URL and JSON body", async (_ts, name, args, method, path, body) => {
+    // calculate_the_shipping_cost works in Read-only Mode; the rest need it off.
+    const http = createFakeFetch();
+    h = await startHarness({ readOnly: name.startsWith("calculate") ? undefined : false }, http);
+    const res = await h.client.callTool({ name, arguments: args });
+    expect(res.isError, resultText(res)).toBeFalsy();
+    const req = http.requests[0]!;
+    expect(req.method).toBe(method);
+    expect(req.url).toBe(`https://api.printify.com${path}`);
+    if (body === undefined) expect(req.body).toBeUndefined();
+    else {
+      expect(JSON.parse(req.body!)).toEqual(body);
+      expect(req.headers["content-type"]).toBe("application/json");
+    }
   });
 });

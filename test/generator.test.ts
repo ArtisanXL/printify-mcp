@@ -3,7 +3,14 @@ import { z } from "zod";
 import { buildTools, generate } from "../scripts/generate/generate.js";
 import type { Overrides } from "../scripts/generate/overrides.js";
 
-const none: Overrides = { nameOverrides: {}, toolsetOverrides: {} };
+const none: Overrides = {
+  nameOverrides: {},
+  toolsetOverrides: {},
+  readOnlyExceptions: [],
+  destructive: [],
+  paid: [],
+  notes: {},
+};
 
 function spec(paths: object, components: object = {}) {
   return { openapi: "3.0.3", paths, components };
@@ -104,6 +111,62 @@ describe("generator", () => {
     expect(schema.safeParse({ ...ok, body: { ...ok.body, choice: {} } }).success).toBe(false);
     expect(schema.safeParse({ ...ok, body: { inner: { n: "x" }, choice: { url: "u" } } }).success).toBe(false);
     expect(schema.safeParse({ ...ok, "dry-run": "2" }).success).toBe(false);
+  });
+
+  it("fails on an unknown key in every operationId override category", () => {
+    const s = spec({ "/x": { post: { operationId: "postX", tags: ["T"] } } });
+    for (const category of ["readOnlyExceptions", "destructive", "paid"] as const) {
+      expect(() => generate(s, { ...none, [category]: ["nope"] }, { methods: ["post"] }), category).toThrow(/nope/);
+      expect(() => generate(s, { ...none, [category]: ["postX"] }, { methods: ["post"] }), category).not.toThrow();
+    }
+    expect(() => generate(s, { ...none, notes: { nope: "n" } }, { methods: ["post"] })).toThrow(/nope/);
+    expect(() => generate(s, { ...none, notes: { postX: "n" } }, { methods: ["post"] })).not.toThrow();
+  });
+
+  it("converts a oneOf request body into a union that accepts each variant", () => {
+    const s = spec({
+      "/u": {
+        post: {
+          operationId: "upload",
+          tags: ["T"],
+          requestBody: {
+            content: {
+              "application/json": {
+                schema: {
+                  oneOf: [
+                    { type: "object", required: ["file_name", "url"], properties: { file_name: { type: "string" }, url: { type: "string" } } },
+                    { type: "object", required: ["file_name", "contents"], properties: { file_name: { type: "string" }, contents: { type: "string" } } },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    const [tool] = buildTools(s, none, { methods: ["post"] });
+    const schema = inputSchema(tool!);
+    expect(schema.safeParse({ body: { file_name: "a", url: "u" } }).success).toBe(true);
+    expect(schema.safeParse({ body: { file_name: "a", contents: "c" } }).success).toBe(true);
+    expect(schema.safeParse({ body: { file_name: "a" } }).success).toBe(false);
+  });
+
+  it("classifies by method with overrides, and prefixes Paid descriptions", () => {
+    const s = spec({
+      "/a": { get: { operationId: "getA", tags: ["T"] }, post: { operationId: "quote", tags: ["T"] }, put: { operationId: "putA", tags: ["T"] }, delete: { operationId: "delA", tags: ["T"] } },
+      "/b": { post: { operationId: "pay", description: "Pay it", tags: ["T"] } },
+      "/c": { post: { operationId: "cancelC", tags: ["T"] } },
+    });
+    const o = { ...none, readOnlyExceptions: ["quote"], paid: ["pay"], destructive: ["cancelC"], notes: { putA: "Channel only." } };
+    const by = Object.fromEntries(buildTools(s, o, { methods: ["get", "post", "put", "delete"] }).map((t) => [t.operationId, t]));
+    expect(by.getA!.annotations).toEqual({ readOnlyHint: true, destructiveHint: false });
+    expect(by.quote!.annotations).toEqual({ readOnlyHint: true, destructiveHint: false });
+    expect(by.putA!.annotations).toEqual({ readOnlyHint: false, destructiveHint: false });
+    expect(by.delA!.annotations).toEqual({ readOnlyHint: false, destructiveHint: true });
+    expect(by.pay!.annotations).toEqual({ readOnlyHint: false, destructiveHint: true });
+    expect(by.cancelC!.annotations).toEqual({ readOnlyHint: false, destructiveHint: true });
+    expect(by.pay!.description).toMatch(/^PAID: .*charge.*Pay it/);
+    expect(by.putA!.description).toMatch(/Channel only\./);
   });
 
   it("is deterministic", () => {

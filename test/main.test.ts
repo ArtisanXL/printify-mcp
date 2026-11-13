@@ -64,4 +64,25 @@ describe("startup", () => {
       await h.close();
     }
   });
+
+  it.each([
+    [undefined, true],
+    ["", true],
+    ["true", true],
+    ["1", true],
+    ["no", true],
+    ["false", false],
+    ["0", false],
+    ["FALSE", false],
+    [" false ", false],
+  ])("PRINTIFY_READ_ONLY=%j -> read-only %s", async (value, readOnly) => {
+    const h = await startHarnessFromEnv({ PRINTIFY_API_TOKEN: "t", PRINTIFY_READ_ONLY: value });
+    try {
+      const { tools } = await h.client.listTools();
+      expect(tools.map((t) => t.name).includes("create_a_new_product")).toBe(!readOnly);
+      expect(tools).toHaveLength(readOnly ? 28 : 53);
+    } finally {
+      await h.close();
+    }
+  });
 });
