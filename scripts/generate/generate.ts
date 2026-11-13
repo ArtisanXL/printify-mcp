@@ -47,8 +47,15 @@ export function buildTools(spec: Json, overrides: Overrides, options: GenerateOp
 
   // Validate overrides against ALL Operations, not just the selected methods.
   const allOperationIds = new Set<string>();
+  const allTags = new Set<string>();
   for (const item of Object.values<Json>(spec.paths ?? {})) {
-    for (const m of HTTP_METHODS) if (item[m]?.operationId) allOperationIds.add(item[m].operationId);
+    for (const m of HTTP_METHODS) {
+      if (item[m]?.operationId) allOperationIds.add(item[m].operationId);
+      if (item[m]) allTags.add(item[m].tags?.[0] ?? "");
+    }
+  }
+  for (const key of Object.keys(overrides.toolsetOverrides)) {
+    if (!allTags.has(key)) throw new Error(`Toolset override key "${key}" matches no Operation tag in the spec`);
   }
   for (const key of Object.keys(overrides.nameOverrides)) {
     if (!allOperationIds.has(key)) {
@@ -85,7 +92,10 @@ export function buildTools(spec: Json, overrides: Overrides, options: GenerateOp
       if (op.requestBody) {
         const rb = deref(op.requestBody, resolve);
         const media = rb.content?.["application/json"];
-        if (media?.schema) {
+        if (!media?.schema) {
+          throw new Error(`${operationId}: request body has no application/json schema`);
+        }
+        {
           hasBody = true;
           if (params.some((p) => p.name === "body")) {
             throw new Error(`${operationId}: a parameter named "body" collides with the request body`);
@@ -111,7 +121,7 @@ export function buildTools(spec: Json, overrides: Overrides, options: GenerateOp
         hasBody,
         annotations:
           method === "get"
-            ? { readOnlyHint: true }
+            ? { readOnlyHint: true, destructiveHint: false }
             : { readOnlyHint: false, destructiveHint: method === "delete" },
         shape,
       });

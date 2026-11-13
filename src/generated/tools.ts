@@ -14,7 +14,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["shop_id","order_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "shop_id": z.number().int(),
       "order_id": z.string(),
@@ -30,7 +30,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["shop_id","order_id","supportRequestId"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "shop_id": z.number().int(),
       "order_id": z.string(),
@@ -47,7 +47,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["blueprint_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "blueprint_id": z.number().int(),
     },
@@ -62,7 +62,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["blueprint_id","print_provider_id"],
     queryParams: ["show-out-of-stock"],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "blueprint_id": z.number().int(),
       "print_provider_id": z.number().int(),
@@ -79,7 +79,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: [],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
     },
   },
@@ -93,7 +93,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["shop_id","order_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "shop_id": z.number().int(),
       "order_id": z.string(),
@@ -109,7 +109,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["shop_id"],
     queryParams: ["limit","page","status","sku"],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "shop_id": z.number().int(),
       "limit": z.number().int().min(1).max(50).optional().describe("Results per page\n(default: 10, maximum: 50)"),
@@ -128,7 +128,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["shop_id"],
     queryParams: ["limit","page"],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "shop_id": z.number().int(),
       "limit": z.number().int().min(1).max(50).optional().describe("Results per page\n(default: 50, maximum: 50)"),
@@ -145,7 +145,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: [],
     queryParams: ["limit","page"],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "limit": z.number().int().min(1).max(50).optional().describe("Results per page\n(default: 10, maximum: 50)"),
       "page": z.number().int().min(1).optional().describe("Paginate through list of results"),
@@ -161,7 +161,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["shop_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "shop_id": z.number().int(),
     },
@@ -176,7 +176,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["shop_id","product_id","task_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "shop_id": z.number().int(),
       "product_id": z.string(),
@@ -193,7 +193,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["shop_id","product_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "shop_id": z.number().int(),
       "product_id": z.string(),
@@ -209,7 +209,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["blueprint_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "blueprint_id": z.number().int(),
     },
@@ -224,7 +224,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["print_provider_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "print_provider_id": z.number().int(),
     },
@@ -239,7 +239,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["blueprint_id","print_provider_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "blueprint_id": z.number().int(),
       "print_provider_id": z.number().int(),
@@ -255,7 +255,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["image_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "image_id": z.string(),
     },
@@ -270,7 +270,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["blueprint_id","print_provider_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "blueprint_id": z.number().int(),
       "print_provider_id": z.number().int(),
@@ -286,7 +286,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["blueprint_id","print_provider_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "blueprint_id": z.number().int(),
       "print_provider_id": z.number().int(),
@@ -302,7 +302,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["blueprint_id","print_provider_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "blueprint_id": z.number().int(),
       "print_provider_id": z.number().int(),
@@ -318,7 +318,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: [],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
     },
   },
@@ -332,7 +332,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["shop_id","product_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "shop_id": z.number().int(),
       "product_id": z.string(),
@@ -348,7 +348,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["blueprint_id","print_provider_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "blueprint_id": z.number().int(),
       "print_provider_id": z.number().int(),
@@ -364,7 +364,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["shop_id","product_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "shop_id": z.number().int(),
       "product_id": z.string(),
@@ -380,7 +380,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["blueprint_id","print_provider_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "blueprint_id": z.number().int(),
       "print_provider_id": z.number().int(),
@@ -396,7 +396,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["blueprint_id","print_provider_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "blueprint_id": z.number().int(),
       "print_provider_id": z.number().int(),
@@ -412,7 +412,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: ["blueprint_id"],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
       "blueprint_id": z.number().int(),
     },
@@ -427,7 +427,7 @@ export const tools: readonly ToolDef[] = [
     pathParams: [],
     queryParams: [],
     hasBody: false,
-    annotations: {"readOnlyHint":true},
+    annotations: {"readOnlyHint":true,"destructiveHint":false},
     inputSchema: {
     },
   },

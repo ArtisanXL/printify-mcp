@@ -20,6 +20,7 @@ describe("tool listing", () => {
     expect(tools).toHaveLength(27);
     for (const t of tools) {
       expect(t.annotations?.readOnlyHint, t.name).toBe(true);
+      expect(t.annotations?.destructiveHint, t.name).toBe(false);
       expect(t.description, t.name).toBeTruthy();
       expect(t.name.length, t.name).toBeLessThanOrEqual(49);
     }

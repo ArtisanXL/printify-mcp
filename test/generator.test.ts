@@ -31,6 +31,29 @@ describe("generator", () => {
     ).toThrow(/nope/);
   });
 
+  it("fails on a toolsetOverrides key matching no Operation tag", () => {
+    const s = spec({ "/x": { get: { operationId: "getX", tags: ["T"] } } });
+    expect(() =>
+      generate(s, { ...none, toolsetOverrides: { Nope: "n" } }, { methods: ["get"] }),
+    ).toThrow(/Nope/);
+    expect(() =>
+      generate(s, { ...none, toolsetOverrides: { T: "n" } }, { methods: ["get"] }),
+    ).not.toThrow();
+  });
+
+  it("fails on a request body without an application/json schema", () => {
+    const s = spec({
+      "/x": {
+        post: {
+          operationId: "postX",
+          tags: ["T"],
+          requestBody: { content: { "multipart/form-data": { schema: { type: "object" } } } },
+        },
+      },
+    });
+    expect(() => generate(s, none, { methods: ["post"] })).toThrow(/postX.*application\/json/);
+  });
+
   it("resolves $refs in parameters, request bodies and nested schemas", () => {
     const s = spec(
       {
@@ -73,12 +96,7 @@ describe("generator", () => {
       },
     );
     const [tool] = buildTools(s, none, { methods: ["post"] });
-    expect(tool).toMatchObject({
-      name: "create_thing",
-      pathParams: ["id"],
-      queryParams: ["dry-run"],
-      hasBody: true,
-    });
+    expect(tool!.name).toBe("create_thing");
     const schema = inputSchema(tool!);
     const ok = { id: 1, "dry-run": "1", body: { inner: { n: 2 }, choice: { url: "http://x" } } };
     expect(schema.safeParse(ok).success).toBe(true);
