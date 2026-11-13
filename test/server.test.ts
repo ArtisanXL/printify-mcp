@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { afterEach, describe, expect, it } from "vitest";
 import { createFakeFetch, resultText, startHarness, type Harness } from "./support/harness.js";
 
@@ -12,6 +13,14 @@ async function call(name: string, args: Record<string, unknown> = {}, http = cre
   const res = await h.client.callTool({ name, arguments: args });
   return { res, req: http.requests[0], http };
 }
+
+describe("server info", () => {
+  it("reports the package.json version", async () => {
+    h = await startHarness();
+    const pkg = createRequire(import.meta.url)("../package.json") as { version: string };
+    expect(h.client.getServerVersion()?.version).toBe(pkg.version);
+  });
+});
 
 describe("tool listing", () => {
   it("exposes every read-only Operation (GETs plus the shipping-cost POST), read-only annotated, with descriptions and schemas", async () => {
