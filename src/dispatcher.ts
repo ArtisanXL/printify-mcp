@@ -49,10 +49,20 @@ export async function dispatch(
     init.body = JSON.stringify(args.body);
   }
 
-  const res = await ctx.fetch(`${ctx.apiBase}${path}${qs ? `?${qs}` : ""}`, init);
-  const raw = await res.text();
+  const url = `${ctx.apiBase}${path}${qs ? `?${qs}` : ""}`;
+  let res: Response;
+  let raw: string;
+  try {
+    res = await ctx.fetch(url, init);
+    raw = await res.text();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // Defensive: never let the bearer token leak into a result.
+    const safe = ctx.token ? message.replaceAll(ctx.token, "[redacted]") : message;
+    return text(`Request failed: ${tool.method} ${url}: ${safe}`, true);
+  }
   if (!res.ok) return text(`Printify API ${res.status}: ${raw}`, true);
-  if (raw === "") return text(`HTTP ${res.status}: success (no response body)`);
+  if (raw.trim() === "") return text(`HTTP ${res.status}: success (no response body)`);
   try {
     return text(JSON.stringify(JSON.parse(raw), null, 2));
   } catch {

@@ -196,4 +196,43 @@ describe("dispatcher robustness", () => {
     await h.client.callTool({ name: SHOPS, arguments: {} });
     expect(http.requests[0].url).toBe("https://example.test/prefix/v1/shops.json");
   });
+
+  it("treats a whitespace-only apiBase as unset", async () => {
+    const http = createFakeFetch();
+    h = await startHarness({ apiBase: "   " }, http);
+    await h.client.callTool({ name: SHOPS, arguments: {} });
+    expect(http.requests[0].url).toBe("https://api.printify.com/v1/shops.json");
+  });
+
+  it("returns an error result with method and URL when fetch throws, without leaking the token", async () => {
+    const http = createFakeFetch();
+    const failing = (async () => {
+      throw new Error("connect ECONNREFUSED test-token");
+    }) as unknown as typeof fetch;
+    h = await startHarness({ token: "test-token" }, { ...http, fetch: failing });
+    const res = await h.client.callTool({ name: SHOPS, arguments: {} });
+    expect(res.isError).toBe(true);
+    const t = resultText(res);
+    expect(t).toContain("GET https://api.printify.com/v1/shops.json");
+    expect(t).toContain("ECONNREFUSED");
+    expect(t).not.toContain("test-token");
+  });
+
+  it("returns an error with the status for a non-2xx empty body", async () => {
+    const { res } = await call(SHOPS, {}, createFakeFetch({ status: 500 }));
+    expect(res.isError).toBe(true);
+    expect(resultText(res)).toContain("500");
+  });
+
+  it("reports success for a 200 with an empty body", async () => {
+    const { res } = await call(SHOPS, {}, createFakeFetch({ status: 200 }));
+    expect(res.isError).toBeFalsy();
+    expect(resultText(res).toLowerCase()).toContain("success");
+  });
+
+  it("reports success for a whitespace-only 2xx body", async () => {
+    const { res } = await call(SHOPS, {}, createFakeFetch({ status: 200, body: "  \n " }));
+    expect(res.isError).toBeFalsy();
+    expect(resultText(res).toLowerCase()).toContain("success");
+  });
 });

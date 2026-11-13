@@ -18,7 +18,7 @@ export function createServer(config: ServerConfig, fetchImpl: FetchLike): McpSer
   const ctx = {
     token: config.token,
     // Strip trailing slashes so `${apiBase}${path}` never doubles the slash.
-    apiBase: (config.apiBase || DEFAULT_API_BASE).replace(/\/+$/, ""),
+    apiBase: (config.apiBase?.trim() || DEFAULT_API_BASE).replace(/\/+$/, ""),
     fetch: fetchImpl,
   };
   const server = new McpServer({ name: "printify-mcp", version: SERVER_VERSION });
