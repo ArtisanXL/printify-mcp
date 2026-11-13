@@ -31,8 +31,8 @@ describe("startup", () => {
     const h = await startHarnessFromEnv({ PRINTIFY_API_TOKEN: "t" }, http);
     try {
       const { tools } = await h.client.listTools();
-      expect(tools.map((t) => t.name)).toContain("list_shops");
-      await h.client.callTool({ name: "list_shops", arguments: {} });
+      expect(tools.map((t) => t.name)).toContain("retrieve_list_of_shops_in_a_printify_account");
+      await h.client.callTool({ name: "retrieve_list_of_shops_in_a_printify_account", arguments: {} });
       expect(http.requests).toHaveLength(1);
       expect(http.requests[0].headers.authorization).toBe("Bearer t");
     } finally {

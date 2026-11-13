@@ -1,58 +1,38 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
+import { dispatch, type FetchLike } from "./dispatcher.js";
+import { tools } from "./generated/tools.js";
 
-export type FetchLike = typeof fetch;
+export type { FetchLike };
 
 export interface ServerConfig {
   /** Printify personal access token. */
   token: string;
-  /** API base URL including version prefix. */
+  /** API base URL (no version prefix: Operation paths already carry `/v1`, `/v2`). */
   apiBase?: string;
 }
 
-export const DEFAULT_API_BASE = "https://api.printify.com/v1";
+export const DEFAULT_API_BASE = "https://api.printify.com";
 export const SERVER_VERSION = "0.1.0";
 
 export function createServer(config: ServerConfig, fetchImpl: FetchLike): McpServer {
-  const apiBase = config.apiBase ?? DEFAULT_API_BASE;
-
-  async function printify(path: string): Promise<unknown> {
-    const res = await fetchImpl(`${apiBase}${path}`, {
-      headers: {
-        Authorization: `Bearer ${config.token}`,
-        "User-Agent": "printify-mcp",
-      },
-    });
-    if (!res.ok) {
-      throw new Error(`Printify API ${res.status}: ${await res.text()}`);
-    }
-    return res.json();
-  }
-
-  const asText = (data: unknown) => ({
-    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-  });
-
+  const ctx = {
+    token: config.token,
+    apiBase: config.apiBase ?? DEFAULT_API_BASE,
+    fetch: fetchImpl,
+  };
   const server = new McpServer({ name: "printify-mcp", version: SERVER_VERSION });
 
-  server.registerTool(
-    "list_shops",
-    { description: "List Printify shops for the authenticated account" },
-    async () => asText(await printify("/shops.json")),
-  );
-
-  server.registerTool(
-    "list_products",
-    {
-      description: "List products in a Printify shop",
-      inputSchema: {
-        shop_id: z.string().describe("Printify shop ID"),
-        page: z.number().int().positive().optional(),
+  for (const tool of tools) {
+    server.registerTool(
+      tool.name,
+      {
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        annotations: tool.annotations,
       },
-    },
-    async ({ shop_id, page }) =>
-      asText(await printify(`/shops/${shop_id}/products.json?page=${page ?? 1}`)),
-  );
+      async (args: Record<string, unknown>) => dispatch(tool, args, ctx),
+    );
+  }
 
   return server;
 }
