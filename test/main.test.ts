@@ -126,10 +126,10 @@ describe("startup", () => {
       expect(await names({ PRINTIFY_TOOLSETS: toolset })).toHaveLength(read + write);
     });
 
-    it("composes with Read-only Mode", async () => {
-      const n = await names({ PRINTIFY_TOOLSETS: "orders", PRINTIFY_READ_ONLY: "true" });
+    it("composes with default Read-only Mode (PRINTIFY_READ_ONLY unset)", async () => {
+      const n = await names({ PRINTIFY_TOOLSETS: "products", PRINTIFY_READ_ONLY: undefined });
       expect(n).toHaveLength(3);
-      expect(n).not.toContain("submit_an_order");
+      expect(n).not.toContain("create_a_new_product");
     });
 
     it("fails startup on an unknown toolset, listing the valid names", async () => {
@@ -146,10 +146,26 @@ describe("startup", () => {
         }),
       ).rejects.toMatchObject({ code: 1 });
       const msg = errors.join("\n");
-      expect(msg).toContain("bogus");
+      expect(msg).toContain('Unknown toolset "bogus"');
       for (const n of ["shops", "catalog", "products", "orders", "personalization", "support_requests", "uploads", "webhooks"]) {
         expect(msg).toContain(n);
       }
+    });
+
+    it("pluralises the error when several toolsets are unknown", async () => {
+      const errors: string[] = [];
+      const [, transport] = InMemoryTransport.createLinkedPair();
+      await expect(
+        main({ PRINTIFY_API_TOKEN: "t", PRINTIFY_TOOLSETS: "bogus,nope" }, {
+          fetch: createFakeFetch().fetch,
+          transport,
+          exit: (code) => {
+            throw new ExitCalled(code);
+          },
+          error: (m) => errors.push(m),
+        }),
+      ).rejects.toMatchObject({ code: 1 });
+      expect(errors.join("\n")).toContain('Unknown toolsets "bogus", "nope"');
     });
   });
 });

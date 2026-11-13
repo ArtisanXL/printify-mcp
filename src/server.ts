@@ -34,7 +34,7 @@ function assertKnownToolsets(names: readonly string[]): void {
   const unknown = names.filter((n) => !toolsetNames.includes(n));
   if (unknown.length > 0) {
     throw new Error(
-      `Unknown toolset ${unknown.map((n) => `"${n}"`).join(", ")}. Valid toolsets: ${toolsetNames.join(", ")}`,
+      `Unknown toolset${unknown.length > 1 ? "s" : ""} ${unknown.map((n) => `"${n}"`).join(", ")}. Valid toolsets: ${toolsetNames.join(", ")}`,
     );
   }
 }
