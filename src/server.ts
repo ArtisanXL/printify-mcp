@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { dispatch, type FetchLike } from "./dispatcher.js";
 import { assertExtensionsMatch, extensionFor } from "./extensions.js";
@@ -47,7 +48,8 @@ export function parseReadOnly(value: string | undefined): boolean {
 }
 
 export const DEFAULT_API_BASE = "https://api.printify.com";
-export const SERVER_VERSION = "0.1.0";
+// Single source of truth: package.json (one level above both src/ and dist/).
+export const SERVER_VERSION: string = (createRequire(import.meta.url)("../package.json") as { version: string }).version;
 
 export function createServer(config: ServerConfig, fetchImpl: FetchLike): McpServer {
   const ctx = {
