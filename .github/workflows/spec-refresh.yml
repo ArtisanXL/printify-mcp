@@ -1,0 +1,80 @@
+name: Spec refresh
+
+# Weekly: download Printify's OpenAPI spec into spec/openapi.json, regenerate
+# src/generated/, and open (or update) a single PR only if something changed.
+#
+# Gotcha: PRs created with the default GITHUB_TOKEN do not trigger other
+# workflows (so ci.yml would not run on the PR). Two mitigations:
+#   1. This workflow runs typecheck/build/test itself before opening the PR.
+#   2. If the optional repo secret SPEC_REFRESH_TOKEN (a PAT or GitHub App token
+#      with contents + pull-requests write) is set, it is used instead, so the
+#      PR also triggers the normal CI workflow.
+# The repo setting "Allow GitHub Actions to create and approve pull requests"
+# must be enabled for the GITHUB_TOKEN fallback to be able to open the PR.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: spec-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run refresh-spec
+      - run: npm run generate
+      - name: Detect changes
+        id: diff
+        run: |
+          if [ -n "$(git status --porcelain -- spec src/generated)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Spec Snapshot unchanged; nothing to do."
+          fi
+      - name: Typecheck, build, test
+        id: checks
+        if: steps.diff.outputs.changed == 'true'
+        continue-on-error: true
+        run: |
+          npm run typecheck
+          npm run build
+          npm test
+      - name: Open or update PR
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.SPEC_REFRESH_TOKEN || secrets.GITHUB_TOKEN }}
+          branch: chore/spec-refresh
+          draft: ${{ steps.checks.outcome == 'failure' }}
+          add-paths: |
+            spec
+            src/generated
+          commit-message: "chore: refresh Printify Spec Snapshot"
+          title: "chore: refresh Printify Spec Snapshot"
+          body: |
+            Automated weekly refresh of `spec/openapi.json` from Printify, with `src/generated/` regenerated via `npm run generate`.
+
+            ${{ steps.checks.outcome == 'success' && 'typecheck, build and test passed in the refresh workflow.' || '**typecheck, build and/or test FAILED in the refresh workflow, so this PR is a draft.** See the workflow run logs.' }} If CI did not start on this PR (PRs opened with the default `GITHUB_TOKEN` do not trigger workflows), check that those results are acceptable before merging.
+
+            Review the spec diff for new, removed or changed Operations. New Operations may need a Toolset assignment or Write/Paid classification.
+          delete-branch: true
+      - name: Fail if checks failed
+        if: steps.checks.outcome == 'failure'
+        run: |
+          echo "::error::typecheck/build/test failed on the refreshed Spec Snapshot; a draft PR was opened for inspection."
+          exit 1
