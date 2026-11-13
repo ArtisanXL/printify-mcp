@@ -1,5 +1,5 @@
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { createServer, parseReadOnly, type FetchLike } from "./server.js";
+import { createServer, parseReadOnly, parseToolsets, type FetchLike } from "./server.js";
 
 export interface MainDeps {
   fetch: FetchLike;
@@ -16,11 +16,19 @@ export async function main(env: NodeJS.ProcessEnv, deps: MainDeps): Promise<void
     (deps.error ?? console.error)("PRINTIFY_API_TOKEN environment variable is required");
     deps.exit(1);
   }
+  let toolsets: string[] | undefined;
+  try {
+    toolsets = parseToolsets(env.PRINTIFY_TOOLSETS);
+  } catch (e) {
+    (deps.error ?? console.error)(`PRINTIFY_TOOLSETS: ${(e as Error).message}`);
+    deps.exit(1);
+  }
   const server = createServer(
     {
       token,
       apiBase: env.PRINTIFY_API_BASE,
       readOnly: parseReadOnly(env.PRINTIFY_READ_ONLY),
+      toolsets,
     },
     deps.fetch,
   );

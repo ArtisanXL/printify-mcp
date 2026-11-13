@@ -85,4 +85,71 @@ describe("startup", () => {
       await h.close();
     }
   });
+
+  describe("PRINTIFY_TOOLSETS", () => {
+    const names = async (env: NodeJS.ProcessEnv) => {
+      const h = await startHarnessFromEnv({ PRINTIFY_API_TOKEN: "t", PRINTIFY_READ_ONLY: "false", ...env });
+      try {
+        const { tools } = await h.client.listTools();
+        return tools.map((t) => t.name);
+      } finally {
+        await h.close();
+      }
+    };
+
+    it("registers every toolset by default, for unset, empty and blank values", async () => {
+      for (const v of [undefined, "", "  ", " , "]) expect(await names({ PRINTIFY_TOOLSETS: v })).toHaveLength(53);
+    });
+
+    it("filters to the named toolsets (catalog,products)", async () => {
+      const n = await names({ PRINTIFY_TOOLSETS: "catalog,products" });
+      expect(n).toHaveLength(14 + 10);
+      expect(n).toContain("create_a_new_product");
+      expect(n).not.toContain("retrieve_list_of_shops_in_a_printify_account");
+    });
+
+    it("tolerates whitespace, case and empty entries", async () => {
+      expect(await names({ PRINTIFY_TOOLSETS: " Shops , ,shops," })).toHaveLength(2);
+    });
+
+    it.each([
+      ["shops", 1, 1],
+      ["catalog", 14, 0],
+      ["products", 3, 7],
+      ["orders", 3, 9],
+      ["personalization", 2, 2],
+      ["support_requests", 2, 0],
+      ["uploads", 2, 2],
+      ["webhooks", 1, 4],
+    ])("toolset %s has %i read and %i write tools", async (toolset, read, write) => {
+      expect(await names({ PRINTIFY_TOOLSETS: toolset, PRINTIFY_READ_ONLY: "true" })).toHaveLength(read);
+      expect(await names({ PRINTIFY_TOOLSETS: toolset })).toHaveLength(read + write);
+    });
+
+    it("composes with Read-only Mode", async () => {
+      const n = await names({ PRINTIFY_TOOLSETS: "orders", PRINTIFY_READ_ONLY: "true" });
+      expect(n).toHaveLength(3);
+      expect(n).not.toContain("submit_an_order");
+    });
+
+    it("fails startup on an unknown toolset, listing the valid names", async () => {
+      const errors: string[] = [];
+      const [, transport] = InMemoryTransport.createLinkedPair();
+      await expect(
+        main({ PRINTIFY_API_TOKEN: "t", PRINTIFY_TOOLSETS: "catalog,bogus" }, {
+          fetch: createFakeFetch().fetch,
+          transport,
+          exit: (code) => {
+            throw new ExitCalled(code);
+          },
+          error: (m) => errors.push(m),
+        }),
+      ).rejects.toMatchObject({ code: 1 });
+      const msg = errors.join("\n");
+      expect(msg).toContain("bogus");
+      for (const n of ["shops", "catalog", "products", "orders", "personalization", "support_requests", "uploads", "webhooks"]) {
+        expect(msg).toContain(n);
+      }
+    });
+  });
 });

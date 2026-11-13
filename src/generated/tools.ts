@@ -858,3 +858,6 @@ export const tools: readonly ToolDef[] = [
     },
   },
 ];
+
+/** Every Toolset name present in `tools`, derived from the spec tags. */
+export const toolsetNames: readonly string[] = ["catalog","orders","personalization","products","shops","support_requests","uploads","webhooks"];

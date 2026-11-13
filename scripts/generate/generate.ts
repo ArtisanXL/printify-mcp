@@ -196,6 +196,12 @@ export function emit(tools: ToolModel[]): string {
     );
   }
   lines.push("];", "");
+  const names = [...new Set(tools.map((t) => t.toolset))].sort();
+  lines.push(
+    "/** Every Toolset name present in `tools`, derived from the spec tags. */",
+    `export const toolsetNames: readonly string[] = ${JSON.stringify(names)};`,
+    "",
+  );
   return lines.join("\n");
 }
 

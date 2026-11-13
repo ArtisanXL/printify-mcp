@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { dispatch, type FetchLike } from "./dispatcher.js";
-import { tools } from "./generated/tools.js";
+import { tools, toolsetNames } from "./generated/tools.js";
 
 export type { FetchLike };
 
@@ -11,6 +11,32 @@ export interface ServerConfig {
   apiBase?: string;
   /** Read-only Mode: when true (the default) Write Tools are not registered. */
   readOnly?: boolean;
+  /** Toolsets to offer; undefined or empty means all. Unknown names throw. */
+  toolsets?: readonly string[];
+}
+
+/**
+ * `PRINTIFY_TOOLSETS`: comma-separated Toolset names. Entries are trimmed and
+ * lower-cased; empty entries are ignored; unset/blank means all (undefined).
+ * Throws on an unknown name, listing the valid ones.
+ */
+export function parseToolsets(value: string | undefined): string[] | undefined {
+  const names = (value ?? "")
+    .split(",")
+    .map((n) => n.trim().toLowerCase())
+    .filter((n) => n !== "");
+  if (names.length === 0) return undefined;
+  assertKnownToolsets(names);
+  return names;
+}
+
+function assertKnownToolsets(names: readonly string[]): void {
+  const unknown = names.filter((n) => !toolsetNames.includes(n));
+  if (unknown.length > 0) {
+    throw new Error(
+      `Unknown toolset ${unknown.map((n) => `"${n}"`).join(", ")}. Valid toolsets: ${toolsetNames.join(", ")}`,
+    );
+  }
 }
 
 /** `PRINTIFY_READ_ONLY`: on unless `false` or `0` (case-insensitive, trimmed). */
@@ -32,7 +58,10 @@ export function createServer(config: ServerConfig, fetchImpl: FetchLike): McpSer
   const server = new McpServer({ name: "printify-mcp", version: SERVER_VERSION });
 
   const readOnly = config.readOnly ?? true;
+  const enabled = config.toolsets && config.toolsets.length > 0 ? config.toolsets : undefined;
+  if (enabled) assertKnownToolsets(enabled);
   for (const tool of tools) {
+    if (enabled && !enabled.includes(tool.toolset)) continue;
     if (readOnly && !tool.annotations.readOnlyHint) continue;
     server.registerTool(
       tool.name,
