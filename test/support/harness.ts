@@ -1,5 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { main } from "../../src/main.js";
 import { createServer, type ServerConfig } from "../../src/server.js";
 
 export interface RecordedRequest {
@@ -30,13 +31,25 @@ export function createFakeFetch(defaultResponse: Responder = { body: {} }): Fake
   const requests: RecordedRequest[] = [];
   const queue: Responder[] = [];
   const fake = async (input: string | URL | Request, init?: RequestInit) => {
+    const isRequest = input instanceof Request;
     const headers: Record<string, string> = {};
+    // Request headers first; init.headers override, matching fetch semantics.
+    if (isRequest) input.headers.forEach((v, k) => (headers[k] = v));
     new Headers(init?.headers).forEach((v, k) => (headers[k] = v));
+    let body: string | undefined;
+    if (init?.body != null) {
+      if (typeof init.body !== "string") {
+        throw new Error(`Fake fetch only supports string bodies, got ${Object.prototype.toString.call(init.body)}`);
+      }
+      body = init.body;
+    } else if (isRequest && input.body !== null) {
+      body = await input.clone().text();
+    }
     const req: RecordedRequest = {
-      method: init?.method ?? "GET",
-      url: String(input),
+      method: init?.method ?? (isRequest ? input.method : "GET"),
+      url: isRequest ? input.url : String(input),
       headers,
-      body: typeof init?.body === "string" ? init.body : undefined,
+      body,
     };
     requests.push(req);
     const r = queue.shift() ?? defaultResponse;
@@ -88,4 +101,33 @@ export function resultText(result: unknown): string {
     .filter((c) => c.type === "text")
     .map((c) => c.text)
     .join("");
+}
+
+export interface EnvHarness {
+  client: Client;
+  http: FakeFetch;
+  close(): Promise<void>;
+}
+
+/** Boots the real `main()` with the given env and connects an MCP client to it. */
+export async function startHarnessFromEnv(
+  env: NodeJS.ProcessEnv,
+  http: FakeFetch = createFakeFetch(),
+): Promise<EnvHarness> {
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await main(env, {
+    fetch: http.fetch,
+    transport: serverTransport,
+    exit: (code) => {
+      throw new Error(`main() exited with code ${code}`);
+    },
+  });
+  const client = new Client({ name: "test-client", version: "0.0.0" });
+  await client.connect(clientTransport);
+  return {
+    client,
+    http,
+    // Closing the client closes the linked server transport too.
+    close: () => client.close(),
+  };
 }
