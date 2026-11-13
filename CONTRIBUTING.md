@@ -18,7 +18,7 @@ and setting `PRINTIFY_API_TOKEN`.
 
 1. Fork and create a branch from `main`.
 2. Keep changes focused; one feature/fix per PR.
-3. Make sure `npm run typecheck` and `npm run build` pass.
+3. Make sure `npm run typecheck`, `npm run build` and `npm test` pass.
 4. Update `README.md` and `CHANGELOG.md` when behavior changes.
 
 Never commit API keys or tokens. Use environment variables or a local `.env` (git-ignored).

@@ -4,6 +4,6 @@
 
 ## Checklist
 
-- [ ] `npm run typecheck` and `npm run build` pass
+- [ ] `npm run typecheck`, `npm run build` and `npm test` pass
 - [ ] README updated if tools/config changed
 - [ ] CHANGELOG updated
