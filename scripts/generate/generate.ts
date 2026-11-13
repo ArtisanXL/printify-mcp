@@ -37,8 +37,7 @@ interface ToolModel {
   pathParams: string[];
   queryParams: string[];
   hasBody: boolean;
-  write: boolean;
-  annotations: { readOnlyHint: boolean; destructiveHint?: boolean };
+  annotations: { readOnlyHint: boolean; destructiveHint: boolean };
   shape: string[]; // `"key": <zod source>` lines
 }
 
@@ -138,7 +137,6 @@ export function buildTools(spec: Json, overrides: Overrides, options: GenerateOp
         pathParams: params.filter((p) => p.in === "path").map((p) => p.name),
         queryParams: params.filter((p) => p.in === "query").map((p) => p.name),
         hasBody,
-        write,
         annotations: { readOnlyHint: !write, destructiveHint: destructive },
         shape,
       });
@@ -190,7 +188,6 @@ export function emit(tools: ToolModel[]): string {
       `    pathParams: ${JSON.stringify(t.pathParams)},`,
       `    queryParams: ${JSON.stringify(t.queryParams)},`,
       `    hasBody: ${t.hasBody},`,
-      `    write: ${t.write},`,
       `    annotations: ${JSON.stringify(t.annotations)},`,
       "    inputSchema: {",
       ...t.shape.map((s) => `      ${s},`),

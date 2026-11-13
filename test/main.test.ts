@@ -73,6 +73,8 @@ describe("startup", () => {
     ["no", true],
     ["false", false],
     ["0", false],
+    ["FALSE", false],
+    [" false ", false],
   ])("PRINTIFY_READ_ONLY=%j -> read-only %s", async (value, readOnly) => {
     const h = await startHarnessFromEnv({ PRINTIFY_API_TOKEN: "t", PRINTIFY_READ_ONLY: value });
     try {

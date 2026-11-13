@@ -13,7 +13,7 @@ export interface ServerConfig {
   readOnly?: boolean;
 }
 
-/** `PRINTIFY_READ_ONLY`: on unless exactly `false` or `0`. */
+/** `PRINTIFY_READ_ONLY`: on unless `false` or `0` (case-insensitive, trimmed). */
 export function parseReadOnly(value: string | undefined): boolean {
   const v = value?.trim().toLowerCase();
   return !(v === "false" || v === "0");
@@ -33,7 +33,7 @@ export function createServer(config: ServerConfig, fetchImpl: FetchLike): McpSer
 
   const readOnly = config.readOnly ?? true;
   for (const tool of tools) {
-    if (readOnly && tool.write) continue;
+    if (readOnly && !tool.annotations.readOnlyHint) continue;
     server.registerTool(
       tool.name,
       {
