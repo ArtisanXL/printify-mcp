@@ -24,12 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `PRINTIFY_API_BASE` to override the API base URL (whitespace and trailing slashes are trimmed).
 - Weekly spec-refresh workflow that regenerates the Tools from Printify's current spec.
 
-## [0.1.0]
+## 0.1.0 (not published)
 
 ### Added
 
 - Initial MCP server with `list_shops` and `list_products` tools.
 
 [Unreleased]: https://github.com/ArtisanXL/printify-mcp/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/ArtisanXL/printify-mcp/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/ArtisanXL/printify-mcp/releases/tag/v0.1.0
+[0.2.0]: https://github.com/ArtisanXL/printify-mcp/releases/tag/v0.2.0
