@@ -18,6 +18,8 @@ export interface ToolDef {
   queryParams: readonly string[];
   /** When true, the request body is the `body` argument. */
   hasBody: boolean;
+  /** Write Tool: only registered when Read-only Mode is off. */
+  write: boolean;
   annotations: { readOnlyHint: boolean; destructiveHint?: boolean };
   /** Zod raw shape: path/query params by exact spec name, plus `body`. */
   inputSchema: Record<string, ZodType>;

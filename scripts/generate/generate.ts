@@ -37,6 +37,7 @@ interface ToolModel {
   pathParams: string[];
   queryParams: string[];
   hasBody: boolean;
+  write: boolean;
   annotations: { readOnlyHint: boolean; destructiveHint?: boolean };
   shape: string[]; // `"key": <zod source>` lines
 }
@@ -57,9 +58,18 @@ export function buildTools(spec: Json, overrides: Overrides, options: GenerateOp
   for (const key of Object.keys(overrides.toolsetOverrides)) {
     if (!allTags.has(key)) throw new Error(`Toolset override key "${key}" matches no Operation tag in the spec`);
   }
-  for (const key of Object.keys(overrides.nameOverrides)) {
-    if (!allOperationIds.has(key)) {
-      throw new Error(`Override key "${key}" matches no operationId in the spec`);
+  const idKeys: [string, string[]][] = [
+    ["nameOverrides", Object.keys(overrides.nameOverrides)],
+    ["readOnlyExceptions", overrides.readOnlyExceptions],
+    ["destructive", overrides.destructive],
+    ["paid", overrides.paid],
+    ["notes", Object.keys(overrides.notes)],
+  ];
+  for (const [category, keys] of idKeys) {
+    for (const key of keys) {
+      if (!allOperationIds.has(key)) {
+        throw new Error(`Override key "${key}" (${category}) matches no operationId in the spec`);
+      }
     }
   }
 
@@ -108,21 +118,28 @@ export function buildTools(spec: Json, overrides: Overrides, options: GenerateOp
         }
       }
 
+      const paid = overrides.paid.includes(operationId);
+      const write = method !== "get" && !overrides.readOnlyExceptions.includes(operationId);
+      const destructive =
+        write && (method === "delete" || paid || overrides.destructive.includes(operationId));
+      let description = String(op.description ?? op.summary ?? operationId).trim();
+      if (paid) description = `PAID: this call can charge your Printify account. ${description}`;
+      const note = overrides.notes[operationId];
+      if (note) description = `${description}\n\n${note}`;
+
       const tag: string = op.tags?.[0] ?? "";
       tools.push({
         name,
         operationId,
         method: method.toUpperCase(),
         path,
-        description: String(op.description ?? op.summary ?? operationId).trim(),
+        description,
         toolset: overrides.toolsetOverrides[tag] ?? toSnakeCase(tag),
         pathParams: params.filter((p) => p.in === "path").map((p) => p.name),
         queryParams: params.filter((p) => p.in === "query").map((p) => p.name),
         hasBody,
-        annotations:
-          method === "get"
-            ? { readOnlyHint: true, destructiveHint: false }
-            : { readOnlyHint: false, destructiveHint: method === "delete" },
+        write,
+        annotations: { readOnlyHint: !write, destructiveHint: destructive },
         shape,
       });
     }
@@ -173,6 +190,7 @@ export function emit(tools: ToolModel[]): string {
       `    pathParams: ${JSON.stringify(t.pathParams)},`,
       `    queryParams: ${JSON.stringify(t.queryParams)},`,
       `    hasBody: ${t.hasBody},`,
+      `    write: ${t.write},`,
       `    annotations: ${JSON.stringify(t.annotations)},`,
       "    inputSchema: {",
       ...t.shape.map((s) => `      ${s},`),

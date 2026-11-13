@@ -7,8 +7,7 @@ import { overrides } from "./overrides.js";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const spec = JSON.parse(readFileSync(resolve(root, "spec/openapi.json"), "utf8"));
 
-// Only read-only (GET) Operations for now; Write Tools arrive with Read-only Mode.
-const code = generate(spec, overrides, { methods: ["get"] });
+const code = generate(spec, overrides, { methods: ["get", "post", "put", "delete", "patch"] });
 
 const out = resolve(root, "src/generated/tools.ts");
 mkdirSync(dirname(out), { recursive: true });
