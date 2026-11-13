@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
+import { homedir } from "node:os";
+import { basename, isAbsolute, join } from "node:path";
 import { z, type ZodType } from "zod";
 import type { ToolDef } from "./tool-def.js";
 
@@ -25,20 +26,21 @@ const uploadBody = z.looseObject({
   file_path: z
     .string()
     .optional()
-    .describe("Path to a local image file; it is read and uploaded base64-encoded. Exactly one of url, contents, file_path is required."),
+    .describe(
+      "Absolute path to a local image file on the machine running this server (a leading ~/ is expanded to the home directory; other relative paths are rejected). It is read and uploaded base64-encoded. Exactly one of url, contents, file_path is required.",
+    ),
 });
 
 const uploadAnImage: ToolExtension = {
   inputSchema: { body: uploadBody },
   async prepare(args) {
-    const body = args.body;
-    if (body === null || typeof body !== "object" || Array.isArray(body)) {
-      return { error: "Invalid upload: `body` is required and must contain exactly one of url, contents, file_path." };
+    // `body` is required by the generated input schema, so it is always an object here.
+    const body = args.body as Record<string, unknown>;
+    const { file_path, ...rest } = body;
+    for (const k of ["url", "contents", "file_path"] as const) {
+      if (body[k] !== undefined && body[k] === "") return { error: `Invalid upload: ${k} must be a non-empty string.` };
     }
-    const { file_path, ...rest } = body as Record<string, unknown>;
-    const given = (["url", "contents", "file_path"] as const).filter(
-      (k) => (body as Record<string, unknown>)[k] !== undefined,
-    );
+    const given = (["url", "contents", "file_path"] as const).filter((k) => body[k] !== undefined);
     if (given.length !== 1) {
       return {
         error: `Invalid upload: exactly one of url, contents, file_path is required, but ${
@@ -55,14 +57,18 @@ const uploadAnImage: ToolExtension = {
     if (typeof file_path !== "string" || file_path === "") {
       return { error: "Invalid upload: file_path must be a non-empty string." };
     }
+    const resolved = file_path === "~" ? homedir() : file_path.startsWith("~/") ? join(homedir(), file_path.slice(2)) : file_path;
+    if (!isAbsolute(resolved)) {
+      return { error: `Invalid upload: file_path must be an absolute path (or start with ~/), got "${file_path}".` };
+    }
     let data: Buffer;
     try {
-      data = await readFile(file_path);
+      data = await readFile(resolved);
     } catch (err) {
       const reason = err instanceof Error ? err.message : String(err);
       return { error: `Cannot read file_path "${file_path}": ${reason}` };
     }
-    const file_name = typeof rest.file_name === "string" && rest.file_name !== "" ? rest.file_name : basename(file_path);
+    const file_name = typeof rest.file_name === "string" && rest.file_name !== "" ? rest.file_name : basename(resolved);
     return { args: { ...args, body: { ...rest, file_name, contents: data.toString("base64") } } };
   },
 };
@@ -70,3 +76,12 @@ const uploadAnImage: ToolExtension = {
 const extensions: Record<string, ToolExtension> = { uploadAnImage };
 
 export const extensionFor = (tool: ToolDef): ToolExtension | undefined => extensions[tool.operationId];
+
+/** Fail fast when an extension key matches no generated Tool (e.g. after a spec rename). */
+export function assertExtensionsMatch(operationIds: Iterable<string>, keys: readonly string[] = Object.keys(extensions)): void {
+  const ids = new Set(operationIds);
+  const orphans = keys.filter((k) => !ids.has(k));
+  if (orphans.length > 0) {
+    throw new Error(`Tool extension(s) match no generated operationId: ${orphans.join(", ")}. Was the spec renamed?`);
+  }
+}

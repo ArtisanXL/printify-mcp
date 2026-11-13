@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { dispatch, type FetchLike } from "./dispatcher.js";
-import { extensionFor } from "./extensions.js";
+import { assertExtensionsMatch, extensionFor } from "./extensions.js";
 import { tools, toolsetNames } from "./generated/tools.js";
 
 export type { FetchLike };
@@ -56,6 +56,7 @@ export function createServer(config: ServerConfig, fetchImpl: FetchLike): McpSer
     apiBase: (config.apiBase?.trim() || DEFAULT_API_BASE).replace(/\/+$/, ""),
     fetch: fetchImpl,
   };
+  assertExtensionsMatch(tools.map((t) => t.operationId));
   const server = new McpServer({ name: "printify-mcp", version: SERVER_VERSION });
 
   const readOnly = config.readOnly ?? true;

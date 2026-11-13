@@ -1,7 +1,9 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { basename, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { assertExtensionsMatch } from "../src/extensions.js";
+import { tools } from "../src/generated/tools.js";
 import { resultText, startHarness } from "./support/harness.js";
 
 let dir: string;
@@ -91,5 +93,61 @@ describe("upload_an_image", () => {
       expect(resultText(result)).toContain("Cannot read file_path");
       expect(requests).toHaveLength(0);
     }
+  });
+
+  it("expands ~/ and bare ~ with the home directory", async () => {
+    const orig = process.env.HOME;
+    process.env.HOME = dir;
+    try {
+      expect(homedir()).toBe(dir);
+      const { result, requests } = await upload({ file_path: "~/logo.png" });
+      expect(result.isError).toBeFalsy();
+      expect(JSON.parse(requests[0].body!)).toEqual({ file_name: "logo.png", contents: bytes.toString("base64") });
+      const bare = await upload({ file_path: "~" });
+      expect(bare.result.isError).toBe(true);
+      expect(resultText(bare.result)).toContain("Cannot read file_path");
+    } finally {
+      process.env.HOME = orig;
+    }
+  });
+
+  it("rejects relative file_path without calling Printify", async () => {
+    for (const p of ["logo.png", "./logo.png", "../logo.png", "~other/x.png"]) {
+      const { result, requests } = await upload({ file_path: p });
+      expect(result.isError).toBe(true);
+      expect(resultText(result)).toContain("absolute");
+      expect(requests).toHaveLength(0);
+    }
+  });
+
+  it("rejects empty url, contents and file_path without calling Printify", async () => {
+    for (const body of [{ url: "", file_name: "a.png" }, { contents: "", file_name: "a.png" }, { file_path: "" }]) {
+      const { result, requests } = await upload(body);
+      expect(result.isError).toBe(true);
+      expect(resultText(result)).toContain("non-empty");
+      expect(requests).toHaveLength(0);
+    }
+  });
+
+  it("passes unknown extra body fields through", async () => {
+    const { requests } = await upload({ file_path: png, extra: { a: 1 } });
+    expect(JSON.parse(requests[0].body!)).toEqual({ file_name: "logo.png", contents: bytes.toString("base64"), extra: { a: 1 } });
+    const u = await upload({ url: "http://x/a.png", file_name: "a.png", extra: 2 });
+    expect(JSON.parse(u.requests[0].body!)).toEqual({ url: "http://x/a.png", file_name: "a.png", extra: 2 });
+  });
+
+  it("falls back to basename for an empty file_name with file_path", async () => {
+    const { requests } = await upload({ file_path: png, file_name: "" });
+    expect(JSON.parse(requests[0].body!).file_name).toBe(basename(png));
+  });
+});
+
+describe("extension table guard", () => {
+  it("accepts the real table against the generated tools", () => {
+    expect(() => assertExtensionsMatch(tools.map((t) => t.operationId))).not.toThrow();
+  });
+
+  it("throws for a key matching no operationId", () => {
+    expect(() => assertExtensionsMatch(["a", "b"], ["a", "renamedOp"])).toThrow(/renamedOp/);
   });
 });
