@@ -25,3 +25,15 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm pack --dry-run
+      # Sync check: generated code must match the Spec Snapshot (and override file).
+      # Deterministic output, so one leg is enough.
+      - name: Check generated code is in sync
+        if: matrix.node == 22
+        run: |
+          npm run generate
+          if [ -n "$(git status --porcelain -- spec src/generated)" ]; then
+            git status --short -- spec src/generated
+            git diff -- spec src/generated | head -200
+            echo "::error::Generated code is out of sync with the Spec Snapshot. Run 'npm run generate' and commit the result."
+            exit 1
+          fi
