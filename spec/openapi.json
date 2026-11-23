@@ -4958,6 +4958,31 @@
           }
         }
       },
+      "personalizationConfigWarning": {
+        "type": "object",
+        "required": [
+          "field_id",
+          "code",
+          "message"
+        ],
+        "properties": {
+          "field_id": {
+            "type": "string",
+            "description": "The `field_id` of the request item that could not be applied to the personalized product.",
+            "example": "front_text"
+          },
+          "code": {
+            "type": "integer",
+            "description": "Identifies the warning. `8510` means that the item could not be applied. More codes can be added later, so handle an unknown code as a generic warning.",
+            "example": 8510
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable description of the warning. Do not parse it, because it can change.",
+            "example": "Cannot apply personalization."
+          }
+        }
+      },
       "createPersonalizationConfigResponse": {
         "type": "object",
         "properties": {
@@ -4970,6 +4995,13 @@
             "type": "string",
             "description": "Pass it exactly as returned, together with `personalisation_strategy`. An opaque reference for most strategies, or human-readable free text when `personalisation_strategy` is `manual`.",
             "example": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+          },
+          "warnings": {
+            "type": "array",
+            "description": "Request items that couldn't be applied to the personalized product. The request still succeeds, and you can decide whether to use the returned personalization. Empty when every item was applied.",
+            "items": {
+              "$ref": "#/components/schemas/personalizationConfigWarning"
+            }
           }
         }
       },
@@ -7699,7 +7731,21 @@
               "Successful operation": {
                 "value": {
                   "personalisation_strategy": "pstudio_pre_order_headless",
-                  "personalisation_instructions": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+                  "personalisation_instructions": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                  "warnings": []
+                }
+              },
+              "Some items not applied": {
+                "value": {
+                  "personalisation_strategy": "pstudio_pre_order_headless",
+                  "personalisation_instructions": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+                  "warnings": [
+                    {
+                      "field_id": "front_text",
+                      "code": 8510,
+                      "message": "Cannot apply personalization."
+                    }
+                  ]
                 }
               }
             }
